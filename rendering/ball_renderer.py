@@ -79,3 +79,55 @@ def draw_ghost(surface, ball, cols, rows, cell_size, ox, oy):
         # 50% brightness for the ghost effect
         ghost_color = tuple(c // 2 for c in ball.color)
         pygame.draw.circle(surface, ghost_color, (px, py), pr)
+
+
+def draw_ghost_portal(surface, ball, portal_map, cols, rows, cell_size, ox, oy):
+    """Draw faded ghost copies at destination portals.
+
+    When a ball is near a portal opening, a dimmed copy appears at the
+    destination portal's position to preview where the ball will emerge.
+    Works with randomly-paired portals — the ghost appears at the actual
+    destination, not just the opposite side.
+
+    Args:
+        surface: Target surface.
+        ball: Ball entity near a portal edge.
+        portal_map: dict mapping (edge, pos) → (dest_edge, dest_pos).
+        cols, rows: Grid dimensions.
+        cell_size, ox, oy: Scaling parameters.
+    """
+    margin = 1.5
+    ghosts = []
+
+    # Check all four edges for nearby portals
+    if ball.gx < margin:
+        dest = portal_map.get(("left", int(ball.gy)))
+        if dest:
+            ghosts.append(dest)
+    if ball.gx > cols - margin:
+        dest = portal_map.get(("right", int(ball.gy)))
+        if dest:
+            ghosts.append(dest)
+    if ball.gy < margin:
+        dest = portal_map.get(("top", int(ball.gx)))
+        if dest:
+            ghosts.append(dest)
+    if ball.gy > rows - margin:
+        dest = portal_map.get(("bottom", int(ball.gx)))
+        if dest:
+            ghosts.append(dest)
+
+    ghost_color = tuple(c // 2 for c in ball.color)
+    pr = max(int(ball.radius * cell_size), 2)
+    for edge, pos in ghosts:
+        if edge == "left":
+            gx, gy = 0.5, pos + 0.5
+        elif edge == "right":
+            gx, gy = cols - 0.5, pos + 0.5
+        elif edge == "top":
+            gx, gy = pos + 0.5, 0.5
+        else:
+            gx, gy = pos + 0.5, rows - 0.5
+        px = int(ox + gx * cell_size)
+        py = int(oy + gy * cell_size)
+        pygame.draw.circle(surface, ghost_color, (px, py), pr)

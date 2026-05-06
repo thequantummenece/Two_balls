@@ -94,18 +94,12 @@ def draw_animated_title(surface, tick, text="Two Balls"):
 
 
 def draw_option_list(surface, options, colors, selected, subtitle, tick, y_start):
-    """Draw a vertical list of selectable options.
+    """Draw a carousel-style rotary list of selectable options.
 
-    The selected option is rendered larger (font vs small_font), with:
-        - "> LABEL <" brackets
-        - A color wave animation
-        - A vertical bounce (±3px sine)
-        - A pulsing underline bar
-
-    Non-selected options are dimmed to 50% brightness.
-
-    A pulsing hint line ("W/S to select | ENTER | ESC") appears at the
-    bottom of the screen.
+    The selected option is centered in the available space and rendered large
+    with wave color, bounce, and underline. Neighboring options appear above
+    and below with decreasing opacity. At most MAX_VISIBLE items are shown,
+    giving a rotating wheel feel that works for any number of options.
 
     Args:
         surface: Target surface.
@@ -117,18 +111,37 @@ def draw_option_list(surface, options, colors, selected, subtitle, tick, y_start
         y_start: Pixel Y where the subtitle begins.
     """
     w, h = surface.get_size()
+    n = len(options)
 
     # Subtitle
     sub = font_manager.small.render(subtitle, True, SUBTITLE_GRAY)
     surface.blit(sub, (w // 2 - sub.get_width() // 2, y_start))
 
-    # Options
-    for i, opt in enumerate(options):
+    # Carousel layout: selected item is centered vertically in available space
+    avail_top = y_start + MENU_ITEM_OFFSET
+    avail_bottom = h - 80  # room for hint text
+    center_y = (avail_top + avail_bottom) // 2
+
+    # How many neighbors to show on each side
+    max_visible = 5
+    half = max_visible // 2  # 2 above, 2 below
+
+    # Track which original indices we've drawn to avoid duplicates in small lists
+    drawn = set()
+
+    for offset in range(-half, half + 1):
+        idx = (selected + offset) % n
+        if idx in drawn:
+            continue
+        drawn.add(idx)
+
+        opt = options[idx]
         base_color = colors[opt]
         label = opt.upper()
-        y = y_start + MENU_ITEM_OFFSET + i * MENU_ITEM_SPACING
+        abs_off = abs(offset)
+        y = center_y + offset * MENU_ITEM_SPACING
 
-        if i == selected:
+        if offset == 0:
             # Selected: larger font, wave color, bounce, underline
             bounce = int(math.sin(tick * 0.1) * 3)
             color = wave_color(base_color, tick, intensity=50)
@@ -142,8 +155,9 @@ def draw_option_list(surface, options, colors, selected, subtitle, tick, y_start
             pygame.draw.rect(surface, bar_c,
                              (w // 2 - bar_w // 2, y + text.get_height() + 2 + bounce, bar_w, 3))
         else:
-            # Unselected: smaller font, 50% brightness
-            dim = tuple(c // 2 for c in base_color)
+            # Neighbors: fade out with distance from center
+            fade = max(0.15, 1.0 - abs_off * 0.35)
+            dim = tuple(max(0, min(255, int(c * fade))) for c in base_color)
             text = font_manager.small.render(label, True, dim)
             surface.blit(text, (w // 2 - text.get_width() // 2, y))
 

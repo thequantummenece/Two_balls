@@ -27,6 +27,7 @@ GAME_TYPE_COLORS = {
     "challenger": (255, 80, 80),
     "infinite": (0, 220, 200),
     "pacman": (255, 255, 50),
+    "mirror": (200, 150, 255),
 }
 
 PLAY_MODE_COLORS = {

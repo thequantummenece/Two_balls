@@ -78,3 +78,60 @@ def wrap_ball(ball, cols, rows):
         ball.gy += rows
     elif ball.gy >= rows:
         ball.gy -= rows
+
+
+def teleport_ball(ball, portal_map, cols, rows):
+    """Teleport ball through a randomly-paired portal.
+
+    Called after move_ball() in Infinite mode. When the ball crosses a
+    grid boundary at a portal opening, looks up the destination portal
+    and moves the ball there. Preserves the overshoot distance so
+    movement feels smooth.
+
+    Left-edge portals pair with right-edge portals (and top with bottom),
+    but the row/col can differ — entering at left row 3 might exit at
+    right row 7.
+
+    Args:
+        ball: Ball entity that may have crossed a boundary.
+        portal_map: dict mapping (edge, pos) → (dest_edge, dest_pos).
+        cols, rows: Grid dimensions.
+    """
+    entry = None
+    overshoot = 0.0
+
+    if ball.gx < 0:
+        entry = ("left", int(ball.gy))
+        overshoot = -ball.gx
+    elif ball.gx >= cols:
+        entry = ("right", int(ball.gy))
+        overshoot = ball.gx - cols
+    elif ball.gy < 0:
+        entry = ("top", int(ball.gx))
+        overshoot = -ball.gy
+    elif ball.gy >= rows:
+        entry = ("bottom", int(ball.gx))
+        overshoot = ball.gy - rows
+
+    if entry is None:
+        return
+
+    dest = portal_map.get(entry)
+    if dest is None:
+        # Fallback: simple wrap (shouldn't happen with valid portals)
+        wrap_ball(ball, cols, rows)
+        return
+
+    edge, pos = dest
+    if edge == "right":
+        ball.gx = cols - overshoot
+        ball.gy = pos + 0.5
+    elif edge == "left":
+        ball.gx = overshoot
+        ball.gy = pos + 0.5
+    elif edge == "bottom":
+        ball.gx = pos + 0.5
+        ball.gy = rows - overshoot
+    elif edge == "top":
+        ball.gx = pos + 0.5
+        ball.gy = overshoot

@@ -2,15 +2,16 @@
 Playing state: the core gameplay loop for ALL game type × play mode combinations.
 
 Instead of separate ArcadeMode, StoryMode, InfiniteMode, and PacmanMode classes
-(which shared 90% of their code), this single state handles all 8 combinations:
+(which shared 90% of their code), this single state handles all 10 combinations:
     classic × arcade, classic × story,
     challenger × arcade, challenger × story,
     infinite × arcade, infinite × story,
-    pacman × arcade, pacman × story
+    pacman × arcade, pacman × story,
+    mirror × arcade, mirror × story
 
-The differences between game types (wrapping, AI, timers) are handled by
-boolean flags checked at the relevant points. This avoids massive code
-duplication while keeping the logic readable.
+The differences between game types (wrapping, AI, timers, mirrored input) are
+handled by boolean flags checked at the relevant points. This avoids massive
+code duplication while keeping the logic readable.
 
 Sub-states:
     "level_select" — Story mode level grid (entry point for story)
@@ -42,14 +43,14 @@ from config.settings import (
 from config.theme import PINK, BLUE
 from entities.ball import Ball
 from systems.input import get_movement
-from systems.physics import move_ball, wrap_ball
-from systems.collision import balls_touch, balls_touch_toroidal
+from systems.physics import move_ball, teleport_ball
+from systems.collision import balls_touch
 from systems.ai import bfs_path, move_ai_toward
 from components.level_factory import create_level
 from components.particles import ParticleSystem, BallTrail
 from rendering.renderer import clear, get_scaling, draw_game_bg
 from rendering.maze_renderer import draw_walls
-from rendering.ball_renderer import draw_ball, ball_to_pixel, draw_ghost
+from rendering.ball_renderer import draw_ball, ball_to_pixel, draw_ghost_portal
 from rendering.hud import draw_timer
 from rendering.overlay_renderer import (
     draw_win_prompt, draw_timeout_prompt, draw_caught_prompt,
@@ -83,6 +84,7 @@ class PlayingState(State):
         self.is_infinite = self.game_type == "infinite"
         self.is_pacman = self.game_type == "pacman"
         self.is_challenger = self.game_type == "challenger"
+        self.is_mirror = self.game_type == "mirror"
         self.is_story = self.play_mode == "story"
 
         # -- Entity state --
@@ -91,7 +93,7 @@ class PlayingState(State):
         self.walls = []            # List of (gx, gy, gw, gh) wall tuples
         self._matrix = None        # 2D grid for AI pathfinding (pacman only)
         self._cached_level = None  # Cached for reset (same maze on R press)
-        self.portals = []          # Portal dicts (infinite only)
+        self.portal_map = {}       # Portal pair map (infinite only)
 
         # -- Visual effects --
         self.pink_trail = BallTrail(PINK)
@@ -171,7 +173,7 @@ class PlayingState(State):
         """
         self.walls = level["walls"]
         self._matrix = level.get("matrix")    # Only present for pacman
-        self.portals = level.get("portals", [])  # Only present for infinite
+        self.portal_map = level.get("portal_map", {})  # Only present for infinite
 
         # Create ball entities at the positions specified by the level
         px, py = level["pink_start"]
@@ -344,15 +346,19 @@ class PlayingState(State):
         if self.is_pacman:
             # Pacman: player only controls pink
             move_ball(self.pink, dx, dy, self.walls)
+        elif self.is_mirror:
+            # Mirror: pink moves normally, blue moves inverted
+            move_ball(self.pink, dx, dy, self.walls)
+            move_ball(self.blue, -dx, -dy, self.walls)
         else:
             # All other types: both balls move together
             move_ball(self.pink, dx, dy, self.walls)
             move_ball(self.blue, dx, dy, self.walls)
 
-        # -- Infinite wrapping --
+        # -- Infinite portal teleportation --
         if self.is_infinite:
-            wrap_ball(self.pink, self.cols, self.rows)
-            wrap_ball(self.blue, self.cols, self.rows)
+            teleport_ball(self.pink, self.portal_map, self.cols, self.rows)
+            teleport_ball(self.blue, self.portal_map, self.cols, self.rows)
 
         # -- Pacman AI --
         if self.is_pacman and not self.won and not self.caught:
@@ -386,9 +392,8 @@ class PlayingState(State):
                 if dx_c * dx_c + dy_c * dy_c <= cr * cr:
                     self.caught = True
             elif self.is_infinite:
-                # Infinite: toroidal distance (wrapping) for win check
-                if balls_touch_toroidal(self.pink, self.blue,
-                                        self.cols, self.rows):
+                # Infinite: standard touch (portals teleport, not wrap)
+                if balls_touch(self.pink, self.blue):
                     self.won = True
             else:
                 # Classic/Challenger: standard distance check
@@ -493,10 +498,12 @@ class PlayingState(State):
         draw_ball(surface, self.pink, cs, ox, oy)
         draw_ball(surface, self.blue, cs, ox, oy)
 
-        # Layer 4: Ghost copies near wrapping edges (Infinite only)
+        # Layer 4: Ghost copies near portal edges (Infinite only)
         if self.is_infinite:
-            draw_ghost(surface, self.pink, self.cols, self.rows, cs, ox, oy)
-            draw_ghost(surface, self.blue, self.cols, self.rows, cs, ox, oy)
+            draw_ghost_portal(surface, self.pink, self.portal_map,
+                              self.cols, self.rows, cs, ox, oy)
+            draw_ghost_portal(surface, self.blue, self.portal_map,
+                              self.cols, self.rows, cs, ox, oy)
 
         # Layer 5: HUD (timer bars)
         if self.is_pacman and self.sub == "playing":

@@ -95,7 +95,7 @@ def create_level(difficulty, game_type="classic", seed=None):
 
     Args:
         difficulty: "easy", "normal", "hard", or "extreme"
-        game_type: "classic", "challenger", "infinite", or "pacman"
+        game_type: "classic", "challenger", "infinite", "pacman", or "mirror"
         seed: Deterministic seed for story mode, or None for random.
 
     Returns:
@@ -111,7 +111,7 @@ def create_level(difficulty, game_type="classic", seed=None):
         # cells are the most distant pair.
         portals = None
         if game_type == "infinite":
-            portals = _open_portals(matrix, cols, rows)
+            portals = _open_portals(matrix, cols, rows, difficulty)
         elif game_type == "pacman":
             _add_loops(matrix, cols, rows)
 
@@ -132,7 +132,7 @@ def create_level(difficulty, game_type="classic", seed=None):
         if game_type == "pacman":
             level["matrix"] = matrix
         if game_type == "infinite":
-            level["portals"] = portals
+            level["portal_map"] = portals
 
         return level
 
@@ -143,12 +143,13 @@ def create_level(difficulty, game_type="classic", seed=None):
 # Infinite mode: portal generation
 # ---------------------------------------------------------------------------
 
-def _open_portals(matrix, cols, rows):
-    """Create portal pairs by removing boundary walls on opposite edges.
+def _open_portals(matrix, cols, rows, difficulty):
+    """Create randomly-paired portal connections on boundary edges.
 
-    For each axis (horizontal = left↔right, vertical = top↔bottom),
-    finds cells where BOTH the near-boundary and far-boundary cells are
-    open corridors, then removes the boundary walls to create openings.
+    Each axis (horizontal, vertical) gets PORTALS_PER_AXIS[difficulty] pairs.
+    Left-edge openings are randomly paired with right-edge openings (and
+    top with bottom), so a portal doesn't necessarily lead straight across —
+    entering at left row 3 might exit at right row 7.
 
     For grids with padding rows/columns (where the generated maze is
     smaller than the target grid), ALL padding cells along the portal
@@ -157,11 +158,15 @@ def _open_portals(matrix, cols, rows):
     Args:
         matrix: Maze matrix (modified in-place).
         cols, rows: Grid dimensions.
+        difficulty: Difficulty string for portal count lookup.
 
     Returns:
-        List of portal dicts with axis, position, and endpoint coordinates.
+        portal_map: dict mapping (edge, pos) → (dest_edge, dest_pos).
+            edge is "left"/"right"/"top"/"bottom", pos is the row or col.
+            Bidirectional: if A→B is in the map, B→A is too.
     """
-    portals = []
+    n_portals = PORTALS_PER_AXIS[difficulty]
+    portal_map = {}
 
     # Find the actual maze boundaries (padding rows are all walls)
     last_open_row = max(
@@ -175,35 +180,51 @@ def _open_portals(matrix, cols, rows):
         default=cols - 2,
     )
 
-    # Horizontal portals: left edge ↔ right edge
-    # A row is a candidate if both its leftmost and rightmost corridor
-    # cells are open (col 1 and last_open_col).
-    h_candidates = [r for r in range(1, last_open_row + 1)
-                    if matrix[r][1] == 0 and matrix[r][last_open_col] == 0]
-    random.shuffle(h_candidates)
-    for r in h_candidates[:PORTALS_PER_AXIS]:
+    # --- Horizontal portals (left ↔ right) ---
+    left_candidates = [r for r in range(1, last_open_row + 1)
+                       if matrix[r][1] == 0]
+    right_candidates = [r for r in range(1, last_open_row + 1)
+                        if matrix[r][last_open_col] == 0]
+    random.shuffle(left_candidates)
+    random.shuffle(right_candidates)
+    n_h = min(n_portals, len(left_candidates), len(right_candidates))
+    for i in range(n_h):
+        lr = left_candidates[i]
+        rr = right_candidates[i]
         # Clear left boundary wall
-        matrix[r][0] = 0
-        # Clear all padding columns on the right side
+        matrix[lr][0] = 0
+        # Clear right boundary + padding
+        matrix[rr][0] = 0  # also ensure left boundary open for the right's pair
         for c in range(last_open_col + 1, cols):
-            matrix[r][c] = 0
-        portals.append({"axis": "horizontal", "row": r,
-                        "left": (0, r), "right": (cols - 1, r)})
+            matrix[lr][c] = 0
+            matrix[rr][c] = 0
+        # Bidirectional pairing
+        portal_map[("left", lr)] = ("right", rr)
+        portal_map[("right", rr)] = ("left", lr)
 
-    # Vertical portals: top edge ↔ bottom edge
-    v_candidates = [c for c in range(1, last_open_col + 1)
-                    if matrix[1][c] == 0 and matrix[last_open_row][c] == 0]
-    random.shuffle(v_candidates)
-    for c in v_candidates[:PORTALS_PER_AXIS]:
+    # --- Vertical portals (top ↔ bottom) ---
+    top_candidates = [c for c in range(1, last_open_col + 1)
+                      if matrix[1][c] == 0]
+    bottom_candidates = [c for c in range(1, last_open_col + 1)
+                         if matrix[last_open_row][c] == 0]
+    random.shuffle(top_candidates)
+    random.shuffle(bottom_candidates)
+    n_v = min(n_portals, len(top_candidates), len(bottom_candidates))
+    for i in range(n_v):
+        tc = top_candidates[i]
+        bc = bottom_candidates[i]
         # Clear top boundary wall
-        matrix[0][c] = 0
-        # Clear all padding rows on the bottom side
+        matrix[0][tc] = 0
+        matrix[0][bc] = 0  # also ensure top boundary open for bottom's pair
+        # Clear bottom boundary + padding
         for r in range(last_open_row + 1, rows):
-            matrix[r][c] = 0
-        portals.append({"axis": "vertical", "col": c,
-                        "top": (c, 0), "bottom": (c, rows - 1)})
+            matrix[r][tc] = 0
+            matrix[r][bc] = 0
+        # Bidirectional pairing
+        portal_map[("top", tc)] = ("bottom", bc)
+        portal_map[("bottom", bc)] = ("top", tc)
 
-    return portals
+    return portal_map
 
 
 # ---------------------------------------------------------------------------

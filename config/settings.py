@@ -46,7 +46,7 @@ DIFFICULTY_GRIDS = {
 # These define the choices shown in each menu screen. The order here
 # determines the display order. Adding a new entry here + its color in
 # theme.py is all that's needed to add a new option to the menu.
-GAME_TYPES = ["classic", "challenger", "infinite", "pacman"]
+GAME_TYPES = ["classic", "challenger", "infinite", "pacman", "mirror"]
 PLAY_MODES = ["arcade", "story"]
 DIFFICULTIES = ["easy", "normal", "hard", "extreme"]
 
@@ -84,8 +84,15 @@ PACMAN_SURVIVE_TIMES = {
 }
 
 # -- Infinite mode --
-# Number of portal pairs opened on each axis (left↔right, top↔bottom).
-PORTALS_PER_AXIS = 2
+# Number of portal pairs per axis (left↔right, top↔bottom), scaled by difficulty.
+# Bigger mazes get more portals. Each pair connects a random left opening to a
+# random right opening (or top↔bottom), so portals don't always lead straight across.
+PORTALS_PER_AXIS = {
+    "easy": 2,
+    "normal": 3,
+    "hard": 5,
+    "extreme": 8,
+}
 
 # -- Particle physics --
 # Applied per frame to particle velocity. Gravity pulls down, drag slows.

@@ -2,7 +2,7 @@
 
 A puzzle game where you control two balls simultaneously with WASD. Both respond to the same input, but each is blocked independently by maze walls. Navigate them through procedurally generated mazes until they touch.
 
-Features 4 game types (Classic, Challenger, Infinite, Pacman), 2 play modes (Arcade, Story), 4 difficulty levels, 6 maze generation algorithms, AI pathfinding, and a fully resizable window.
+Features 5 game types (Classic, Challenger, Infinite, Pacman, Mirror), 2 play modes (Arcade, Story), 4 difficulty levels, 6 maze generation algorithms, AI pathfinding, and a fully resizable window.
 
 ---
 
@@ -12,8 +12,9 @@ Features 4 game types (Classic, Challenger, Infinite, Pacman), 2 play modes (Arc
 |-----------|-------------|
 | **Classic** | No time pressure. Both balls move together — solve at your own pace. |
 | **Challenger** | Countdown timer. Finish before time runs out or fail. |
-| **Infinite** | Pac-man wrapping. Some edges are open — balls exit one side, appear on the other. |
+| **Infinite** | Portal edges. Boundary openings are randomly paired — entering one might exit at a different row/col on the other side. More portals on harder difficulties. |
 | **Pacman** | Blue ball chases you with AI. Only you control pink. Survive the timer to win. Mazes have loops for evasion. |
+| **Mirror** | Pink moves normally, blue moves **inverted** (press right → blue goes left). Same maze, mirrored controls. |
 
 | Play Mode | Description |
 |-----------|-------------|
@@ -168,7 +169,7 @@ TitleState ──Enter──→ MenuState (game type)
 
 `MenuState` is **fully reusable** — the same class handles game type, play mode, and difficulty selection. It takes `options`, `colors`, `subtitle`, and an `on_select` callback. No duplication.
 
-`PlayingState` handles **all 8 combinations** (4 game types × 2 play modes) via composition flags (`is_pacman`, `is_infinite`, `is_challenger`, `is_story`), not inheritance.
+`PlayingState` handles **all 10 combinations** (5 game types × 2 play modes) via composition flags (`is_pacman`, `is_infinite`, `is_challenger`, `is_mirror`, `is_story`), not inheritance.
 
 ---
 
@@ -213,8 +214,8 @@ Pure functions that operate on entities and return results. No side effects beyo
 | Module | Functions | Purpose |
 |--------|-----------|---------|
 | `input.py` | `get_movement(keys, dt)` | Reads WASD key state, returns `(dx, dy)` displacement vector scaled by `PLAYER_SPEED * dt`. Single source of truth for input → movement conversion. |
-| `collision.py` | `aabb_collide(...)`, `balls_touch(a, b)`, `balls_touch_toroidal(a, b, cols, rows)` | AABB overlap test for wall collision. `balls_touch` checks if two balls overlap using visual radius (for win condition). `balls_touch_toroidal` handles wrapping distance for Infinite mode. A `use_collision_radius` flag on `balls_touch` allows Pacman's fairer catch detection. |
-| `physics.py` | `move_ball(ball, dx, dy, walls)`, `wrap_ball(ball, cols, rows)` | Moves a ball with axis-separated collision detection. Tests X first, then Y (allows wall-sliding). Sets `ball.bumped` on collision. `wrap_ball` handles pac-man style wrapping for Infinite mode — clamps position to grid bounds. |
+| `collision.py` | `aabb_collide(...)`, `balls_touch(a, b)`, `balls_touch_toroidal(a, b, cols, rows)` | AABB overlap test for wall collision. `balls_touch` checks if two balls overlap using visual radius (for win condition — used by all modes including Infinite). `balls_touch_toroidal` handles wrapping distance (available for simple toroidal grids). A `use_collision_radius` flag on `balls_touch` allows Pacman's fairer catch detection. |
+| `physics.py` | `move_ball(ball, dx, dy, walls)`, `wrap_ball(ball, cols, rows)`, `teleport_ball(ball, portal_map, cols, rows)` | Moves a ball with axis-separated collision detection. Tests X first, then Y (allows wall-sliding). Sets `ball.bumped` on collision. `teleport_ball` handles Infinite mode's randomly-paired portals — when a ball crosses a boundary at a portal opening, it's teleported to the paired portal's position. `wrap_ball` is the simpler toroidal wrap (kept for utility). |
 | `ai.py` | `bfs_path(matrix, start, end, cols, rows)`, `move_ai_toward(ball, path, speed, dt, walls)` | BFS pathfinding using parent pointers (O(n) memory, returns `deque`). `move_ai_toward` moves the AI ball toward the next cell in the path at `ai_speed`, popping cells as they're reached. Used only in Pacman mode. |
 
 **Why stateless?** The same `move_ball()` function is used for player balls in Classic, wrapping balls in Infinite, and AI balls in Pacman. No duplication.
@@ -227,9 +228,9 @@ Each screen the player sees is a `State` subclass. States own their entities and
 |--------|-------|---------|
 | `title.py` | `TitleState` | The "TWO BALLS" opening screen. Renders the animated title with pink/blue wave coloring and a pulsing "Press ENTER to Start" prompt. On Enter, transitions to a `MenuState` for game type selection. Chains menu callbacks: game type → play mode → difficulty → `PlayingState`. |
 | `menu.py` | `MenuState` | **Fully reusable** menu screen. Constructor takes `options` (list of strings), `colors` (dict), `subtitle`, `on_select` (callback), and optional `back_state` (factory for ESC). Used three times in the flow: game type selection, play mode selection, difficulty selection — zero code duplication. W/S navigates, Enter confirms, ESC goes back. |
-| `playing.py` | `PlayingState` | **The core gameplay state**. Handles all 8 game type × play mode combinations via composition flags. Owns two `Ball` entities, wall data, trails, particles. Sub-states: `"level_select"` (story), `"playing"`, `"win_prompt"`, `"timeout_prompt"`, `"caught_prompt"`, `"complete"`. On each `update(dt)`: reads input → moves balls (via systems) → checks win/caught/timeout → fires one-shot events. On each `draw()`: renders game area, walls, balls, trails, ghosts, HUD, and overlays. Level creation delegates to `level_factory.create_level()`. |
+| `playing.py` | `PlayingState` | **The core gameplay state**. Handles all 10 game type × play mode combinations via composition flags. Owns two `Ball` entities, wall data, trails, particles. Sub-states: `"level_select"` (story), `"playing"`, `"win_prompt"`, `"timeout_prompt"`, `"caught_prompt"`, `"complete"`. On each `update(dt)`: reads input → moves balls (via systems) → checks win/caught/timeout → fires one-shot events. On each `draw()`: renders game area, walls, balls, trails, ghosts, HUD, and overlays. Level creation delegates to `level_factory.create_level()`. |
 
-**Why one PlayingState?** Classic, Challenger, Infinite, and Pacman share 90% of their logic (ball creation, wall rendering, trail updates, prompt handling). The differences (wrapping, AI, timers) are just flag-checked branches. One class with flags is cleaner than 4+ classes with duplicated state machines.
+**Why one PlayingState?** Classic, Challenger, Infinite, Pacman, and Mirror share 90% of their logic (ball creation, wall rendering, trail updates, prompt handling). The differences (wrapping, AI, timers, inverted input) are just flag-checked branches. One class with flags is cleaner than 5+ classes with duplicated state machines.
 
 ### `rendering/` — All Drawing Logic
 
@@ -239,7 +240,7 @@ Pure rendering. Every function takes data and a surface, draws pixels, returns n
 |--------|-----------|---------|
 | `renderer.py` | `clear(surface)`, `draw_overlay(surface, alpha)`, `draw_game_bg(...)`, `get_scaling(cols, rows, w, h)` | Foundation drawing: fills screen with black, draws semi-transparent dark overlay (cached surface to avoid allocation per frame), fills the game area rectangle with white, computes cell size and centering offsets for any screen dimension. |
 | `maze_renderer.py` | `draw_walls(surface, walls, cell_size, ox, oy)` | Draws wall tuples as dark rounded rectangles with a 2px inset on each side for a thinner visual appearance. Each wall is a `(gx, gy, gw, gh)` tuple in grid units, converted to pixels at draw time. |
-| `ball_renderer.py` | `ball_to_pixel(ball, cs, ox, oy)`, `draw_ball(surface, ball, cs, ox, oy)`, `draw_ghost(surface, ball, cols, rows, cs, ox, oy)` | Converts ball grid position to pixel coordinates. Draws the ball as a filled circle with a small highlight dot for depth. `draw_ghost` renders faded copies on the opposite side of the screen when a ball is near a wrapping edge (Infinite mode). |
+| `ball_renderer.py` | `ball_to_pixel(ball, cs, ox, oy)`, `draw_ball(surface, ball, cs, ox, oy)`, `draw_ghost_portal(surface, ball, portal_map, cols, rows, cs, ox, oy)` | Converts ball grid position to pixel coordinates. Draws the ball as a filled circle with a small highlight dot for depth. `draw_ghost_portal` renders faded copies at destination portal positions when a ball is near a portal opening (Infinite mode). |
 | `hud.py` | `draw_timer(surface, time_left, time_total, label)` | Draws a horizontal timer bar at the top of the screen with a color gradient (green → yellow → red as time decreases). Shows remaining seconds as text. Used by both Challenger (countdown) and Pacman (survive) modes. The `label` parameter distinguishes them ("Survive: 25s" vs "12s"). |
 | `menu_renderer.py` | `draw_title_screen(surface, tick)`, `draw_menu_screen(surface, options, colors, selected, subtitle, tick)`, `draw_animated_title(surface, tick)`, `draw_option_list(...)`, `wave_color(base, tick, offset, intensity)` | All menu-screen rendering. `wave_color` shifts RGB brightness with a sine wave for animations. `draw_animated_title` renders "Two Balls" with per-character wave coloring. `draw_option_list` renders a vertical list with bounce animation and underline on the selected item. `draw_menu_screen` combines title + option list (used for all 3 menu screens). `draw_title_screen` renders the "TWO BALLS" opening with pink/blue coloring. Font metric widths are cached to avoid recalculation every frame. |
 | `overlay_renderer.py` | `draw_prompt(...)`, `draw_win_prompt(...)`, `draw_timeout_prompt(...)`, `draw_caught_prompt(...)`, `draw_story_complete(surface, tick)`, `draw_level_select(surface, selected, tick)` | Post-game overlays. `draw_prompt` is the generic base: dark overlay + header + selectable options. `draw_win_prompt`, `draw_timeout_prompt`, and `draw_caught_prompt` call it with different header text and colors. `draw_story_complete` shows the congratulations screen. `draw_level_select` renders the 10×5 grid of level numbers for Story mode. |
@@ -251,7 +252,7 @@ Game-specific components that don't fit neatly into entities/systems/rendering.
 | Module | Classes/Functions | Purpose |
 |--------|-------------------|---------|
 | `maze_generator.py` | `MazeGenerator` | Generates perfect mazes using 6 algorithms: Recursive Backtracker (long corridors), Prim's (bushy, short dead ends), Kruskal's (spiky), Recursive Division (long straight walls), Eller's (balanced, row-by-row), Binary Tree (NW diagonal bias). Uses a wall-passage grid representation where passage cells are at odd positions. Generated maze is padded to target dimensions. `find_distant_pair(matrix)` uses double-BFS to find the two most distant open cells for ball placement. |
-| `level_factory.py` | `create_level(difficulty, game_type, seed)` | **Single entry point** for all level creation. Generates a maze via `MazeGenerator`, then applies game-type-specific modifications: Infinite mode opens portal pairs on opposite boundary edges (clearing padding walls for vertical portals). Pacman mode removes ~25% of internal bridge walls to create circular loops for evasion. Places balls at maximum distance via double-BFS. Returns a level dict with `pink_start`, `blue_start`, `walls`, and optional `matrix` (pacman) or `portals` (infinite). Deterministic seeding via `_seeded()` wrapper for Story mode reproducibility. |
+| `level_factory.py` | `create_level(difficulty, game_type, seed)` | **Single entry point** for all level creation. Generates a maze via `MazeGenerator`, then applies game-type-specific modifications: Infinite mode opens randomly-paired portals on boundary edges (count scales with difficulty: 2/3/5/8 per axis). Pacman mode removes ~25% of internal bridge walls to create circular loops for evasion. Places balls at maximum distance via double-BFS. Returns a level dict with `pink_start`, `blue_start`, `walls`, and optional `matrix` (pacman) or `portal_map` (infinite). Deterministic seeding via `_seeded()` wrapper for Story mode reproducibility. |
 | `particles.py` | `ParticleSystem`, `FloatingBubbles`, `BallTrail`, `Particle`, `Bubble` | Visual effects. `ParticleSystem`: general-purpose emitter with gravity and drag — `emit_burst()` for radial explosions on win, `emit_confetti()` for falling celebration particles. `FloatingBubbles`: ambient circles that drift upward on menu screens, respawning at the bottom. `BallTrail`: deque-based fading trail that blends from white toward the ball's color. `Particle` and `Bubble` use `__slots__` for memory efficiency. |
 
 ### `assets/` — Asset Management
@@ -314,3 +315,16 @@ BFS from blue's cell to pink's cell on the maze matrix. Uses parent pointers (O(
 1. Create `states/my_screen.py` extending `State`
 2. Implement `handle_event`, `update`, `draw`
 3. Transition to it via `app.state_machine.change(MyScreen(app))`
+
+---
+
+## Future Scope
+
+Planned game types that fit the "same input, different results" core mechanic:
+
+| Game Type | Description | Complexity |
+|-----------|-------------|------------|
+| **Ice** | Balls slide until they hit a wall (no fine movement). Same direction, different stopping points. Classic puzzle mechanic. | Modify `move_ball` to slide until blocked instead of fixed displacement. |
+| **Gravity** | Balls constantly fall downward. You can move left/right freely but moving up is a single-cell "jump". Turns the maze into a platformer puzzle. | Add per-frame gravity in `update()`, modify up-input to be a one-shot jump. |
+| **Shadow** | One ball responds immediately, the other replays your inputs with a ~0.5s delay. Plan sequences that work for both present and past input. | Queue input history, replay delayed inputs on the second ball. |
+| **Shrink** | Maze walls close inward over time. Outer rings of cells become walls periodically. Bring the balls together before the playable area disappears. | Timer-driven wall addition in `update()`, rebuild wall list periodically. |

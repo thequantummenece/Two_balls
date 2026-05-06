@@ -4,7 +4,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="62d3be07-56f9-49b4-9d86-ed0a4e0385f8" name="Changes" comment="" />
+    <list default="true" id="62d3be07-56f9-49b4-9d86-ed0a4e0385f8" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PLAYERS_GUIDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/PLAYERS_GUIDE.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/level_factory.py" beforeDir="false" afterPath="$PROJECT_DIR$/components/level_factory.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/theme.py" beforeDir="false" afterPath="$PROJECT_DIR$/config/theme.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rendering/ball_renderer.py" beforeDir="false" afterPath="$PROJECT_DIR$/rendering/ball_renderer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rendering/menu_renderer.py" beforeDir="false" afterPath="$PROJECT_DIR$/rendering/menu_renderer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/states/playing.py" beforeDir="false" afterPath="$PROJECT_DIR$/states/playing.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/systems/physics.py" beforeDir="false" afterPath="$PROJECT_DIR$/systems/physics.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -34,6 +45,7 @@
     "Python.two_balls.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
     "git-widget-placeholder": "main",
     "junie.onboarding.icon.badge.shown": "true",

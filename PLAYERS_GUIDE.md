@@ -41,11 +41,28 @@ Same rules as Classic, but with a **countdown timer**. A color-coded bar at the 
 
 ### Infinite
 
-Both balls still move together, but some maze edges are **open**. Move through one side of the screen and you appear on the opposite side — pac-man style.
+Both balls still move together, but some maze edges have **portal openings**. Move through one side of the screen and you appear on the other side — but not necessarily at the same row or column.
 
-The openings look like normal background — just gaps in the boundary wall. When a ball is near a portal edge, a faded **ghost copy** appears on the other side so you can see where it'll emerge.
+Portals are **randomly paired**: entering the left edge at row 3 might exit the right edge at row 7. Each portal has exactly one destination, and the pairing is different every maze. A faded **ghost copy** appears at the destination when you're near a portal, so you can see where you'll emerge.
 
-Both balls wrap independently. One going through a portal doesn't affect the other.
+Harder difficulties have more portals:
+
+| Difficulty | Portals per axis |
+|------------|-----------------|
+| Easy | 2 |
+| Normal | 3 |
+| Hard | 5 |
+| Extreme | 8 |
+
+Both balls teleport independently. One going through a portal doesn't affect the other.
+
+### Mirror
+
+Mind-bending twist. You control both balls, but they move in **opposite directions**. Press right and pink goes right — but blue goes **left**. Press up and pink goes up — blue goes **down**.
+
+The same maze, the same goal (bring them together), but now every move pulls them apart on one axis while bringing them together on another. The "parking" technique becomes essential — use walls to block one ball so the other can move independently.
+
+No timer. Pure spatial reasoning.
 
 ### Pacman
 
@@ -158,7 +175,7 @@ The key technique: **parking**. Move one ball against a wall so it can't go furt
 
 - **Ball trails** — Light-colored fading trails show each ball's recent path. Helps track both balls at once.
 - **Ball highlight** — Small bright dot on each ball gives a 3D depth effect.
-- **Ghost copies** — (Infinite mode) Faded ball copies appear near wrap edges to preview where the ball will emerge.
+- **Ghost copies** — (Infinite mode) Faded ball copies appear at the destination portal when you're near a portal opening, previewing where you'll emerge.
 - **Timer bar** — (Challenger / Pacman) Color gradient bar at the top: green → yellow → red as time decreases. Shows remaining seconds.
 - **Wall bump sound** — Low thud when a ball hits a wall. Tells you a ball is blocked even if you're watching the other one.
 - **Win particles** — Colored bursts from both balls + confetti rain when you complete a puzzle.
@@ -193,8 +210,17 @@ The key technique: **parking**. Move one ball against a wall so it can't go furt
 
 ### Infinite Mode
 
-- Think in terms of which portal exits are closer. Sometimes going "backward" through a portal is the shortest path.
-- Both balls wrap independently — you can use a portal to separate them or bring them together.
+- **Watch the ghosts.** The faded ghost preview shows you exactly where you'll appear. Check before entering a portal.
+- **Portals are randomly paired.** Don't assume left-row-3 leads to right-row-3 — it could be right-row-7. Learn the map.
+- **Use portals to reposition.** Sometimes entering a portal puts one ball much closer to the other. Both balls teleport independently, so portals can separate them or bring them together.
+- **More portals = more options.** On Hard/Extreme, there are many portals. Experiment — the shortest path might go through two portals.
+
+### Mirror Mode
+
+- **Think in opposites.** Every move has a mirrored effect. If you push right to move pink closer, blue moves further away on that axis.
+- **Park aggressively.** Walls are your best friend. Pin one ball against a wall, then the other ball moves freely in that direction.
+- **Work one axis at a time.** Align the balls vertically first, then horizontally (or vice versa). Trying to solve both axes simultaneously is much harder.
+- **Dead ends are gold.** A ball stuck in a dead end can't move in that direction — giving the other ball free movement.
 
 ### Pacman Mode
 
@@ -210,7 +236,7 @@ The key technique: **parking**. Move one ball against a wall so it can't go furt
 ```
 Title Screen ("TWO BALLS")
   └─ Enter
-     Game Type (Classic / Challenger / Infinite / Pacman)
+     Game Type (Classic / Challenger / Infinite / Pacman / Mirror)
        └─ Enter
           Play Mode (Arcade / Story)
             └─ Enter
@@ -221,3 +247,14 @@ Title Screen ("TWO BALLS")
 ```
 
 ESC goes back one step at any point. During gameplay, ESC returns to the level grid (Story) or the title screen (Arcade).
+
+---
+
+## Future Game Types (Coming Soon)
+
+| Game Type | What It Does |
+|-----------|-------------|
+| **Ice** | Balls slide until they hit a wall — no fine-grained movement. Same direction, different stopping points. Think Pokémon ice puzzles with two balls. |
+| **Gravity** | Balls constantly fall downward. You can move left/right, but up is a one-cell "jump". The maze becomes a platformer puzzle. |
+| **Shadow** | One ball moves immediately, the other replays your inputs with a ~0.5 second delay. You need to plan moves that work for both "present" and "past" input. |
+| **Shrink** | The maze walls close inward over time. Outer cells become walls periodically. Race to bring the balls together before the playable area disappears. |
